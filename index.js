@@ -3,15 +3,14 @@ require('dotenv').config();
 const {
   Client,
   GatewayIntentBits,
-  Collection,
   EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  PermissionsBitField
+  ChannelType,
+  PermissionsBitField,
+  StringSelectMenuBuilder
 } = require('discord.js');
-
-const fs = require('fs');
 
 
 
@@ -27,41 +26,17 @@ const client = new Client({
 
 
 
-client.commands = new Collection();
-
-
-
 // ======================
-// LOAD COMMANDS
+// CONFIG
 // ======================
 
-const commandFolders = fs.readdirSync('./commands');
+const guildConfig = {};
 
-for (const folder of commandFolders) {
 
-  const folderPath = `./commands/${folder}`;
 
-  if (!fs.lstatSync(folderPath).isDirectory()) continue;
-
-  const commandFiles = fs
-    .readdirSync(folderPath)
-    .filter(file => file.endsWith('.js'));
-
-  for (const file of commandFiles) {
-
-    const command = require(`${folderPath}/${file}`);
-
-    if (command.name) {
-      client.commands.set(command.name, command);
-    }
-
-    if (command.data) {
-      client.commands.set(command.data.name, command);
-    }
-
-  }
-
-}
+// ROLE YANG BOLEH AKSES PANEL
+const ACCESS_ROLE_NAME =
+  'Astra Manager';
 
 
 
@@ -78,14 +53,19 @@ client.once('ready', () => {
 
 
 // ======================
-// WELCOME SYSTEM
+// WELCOME
 // ======================
 
 client.on('guildMemberAdd', member => {
 
+  const config =
+    guildConfig[member.guild.id];
+
+  if (!config?.welcomeChannel) return;
+
   const channel =
-    member.guild.channels.cache.find(
-      c => c.name === 'welcome'
+    member.guild.channels.cache.get(
+      config.welcomeChannel
     );
 
   if (!channel) return;
@@ -98,11 +78,20 @@ client.on('guildMemberAdd', member => {
 
 
 
+// ======================
+// LEAVE
+// ======================
+
 client.on('guildMemberRemove', member => {
 
+  const config =
+    guildConfig[member.guild.id];
+
+  if (!config?.leaveChannel) return;
+
   const channel =
-    member.guild.channels.cache.find(
-      c => c.name === 'welcome'
+    member.guild.channels.cache.get(
+      config.leaveChannel
     );
 
   if (!channel) return;
@@ -116,23 +105,24 @@ client.on('guildMemberRemove', member => {
 
 
 // ======================
-// PREFIX COMMANDS
+// MESSAGE COMMANDS
 // ======================
 
 client.on('messageCreate', async message => {
 
   if (message.author.bot) return;
 
-  const prefix = process.env.PREFIX || '!';
+  const prefix = '!';
 
-  if (!message.content.startsWith(prefix)) return;
+  if (!message.content.startsWith(prefix))
+    return;
 
   const args = message.content
     .slice(prefix.length)
     .trim()
     .split(/ +/);
 
-  const commandName =
+  const command =
     args.shift().toLowerCase();
 
 
@@ -141,111 +131,151 @@ client.on('messageCreate', async message => {
 // PANEL COMMAND
 // ======================
 
-  if (commandName === 'panel') {
+  if (command === 'panel') {
+
+
+
+// ROLE CHECK
+
+    const role =
+      message.guild.roles.cache.find(
+        r => r.name === ACCESS_ROLE_NAME
+      );
+
+
+
+    if (
+      !message.member.roles.cache.has(
+        role?.id
+      )
+    ) {
+
+      return message.reply(
+        '❌ Tidak punya akses panel.'
+      );
+
+    }
+
+
 
     const embed = new EmbedBuilder()
+
       .setColor('#5865F2')
-      .setTitle('✨ Astra Assistant Panel')
+
+      .setTitle('⚙️ Astra Assistant Panel')
+
       .setDescription(
-        'Gunakan tombol di bawah.'
+        'Gunakan tombol untuk setup bot.'
       )
+
       .addFields(
         {
-          name: '🤖 AI',
-          value: '`!ai pertanyaan`',
+          name: '🎵 Music',
+          value:
+            'Semua member bisa akses.',
           inline: true
         },
         {
-          name: '💰 Economy',
-          value: '`!balance`',
+          name: '🛡️ Admin',
+          value:
+            'Khusus role Astra Manager.',
           inline: true
         }
       );
 
 
 
-    const row1 = new ActionRowBuilder()
-      .addComponents(
+    const row1 =
+      new ActionRowBuilder()
 
-        new ButtonBuilder()
-          .setCustomId('music')
-          .setLabel('Music')
-          .setStyle(ButtonStyle.Primary),
+        .addComponents(
 
-        new ButtonBuilder()
-          .setCustomId('ticket')
-          .setLabel('Ticket')
-          .setStyle(ButtonStyle.Success),
+          new ButtonBuilder()
+            .setCustomId(
+              'setup_welcome'
+            )
+            .setLabel(
+              'Setup Welcome'
+            )
+            .setStyle(
+              ButtonStyle.Success
+            ),
 
-        new ButtonBuilder()
-          .setCustomId('verify')
-          .setLabel('Verify')
-          .setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder()
+            .setCustomId(
+              'setup_leave'
+            )
+            .setLabel(
+              'Setup Leave'
+            )
+            .setStyle(
+              ButtonStyle.Danger
+            ),
 
-        new ButtonBuilder()
-          .setCustomId('server')
-          .setLabel('SA:MP')
-          .setStyle(ButtonStyle.Danger)
+          new ButtonBuilder()
+            .setCustomId(
+              'setup_social'
+            )
+            .setLabel(
+              'Setup Social'
+            )
+            .setStyle(
+              ButtonStyle.Primary
+            ),
 
-      );
+          new ButtonBuilder()
+            .setCustomId(
+              'setup_stock'
+            )
+            .setLabel(
+              'Setup Stock'
+            )
+            .setStyle(
+              ButtonStyle.Secondary
+            )
+
+        );
 
 
 
-    const row2 = new ActionRowBuilder()
-      .addComponents(
+    const row2 =
+      new ActionRowBuilder()
 
-        new ButtonBuilder()
-          .setCustomId('social')
-          .setLabel('Social Media')
-          .setStyle(ButtonStyle.Primary),
+        .addComponents(
 
-        new ButtonBuilder()
-          .setCustomId('stock')
-          .setLabel('Stock Alert')
-          .setStyle(ButtonStyle.Success),
+          new ButtonBuilder()
+            .setCustomId(
+              'setup_adminlog'
+            )
+            .setLabel(
+              'Setup Admin Log'
+            )
+            .setStyle(
+              ButtonStyle.Danger
+            ),
 
-        new ButtonBuilder()
-          .setCustomId('admin')
-          .setLabel('Admin Access')
-          .setStyle(ButtonStyle.Danger)
+          new ButtonBuilder()
+            .setCustomId(
+              'music_panel'
+            )
+            .setLabel(
+              'Music Panel'
+            )
+            .setStyle(
+              ButtonStyle.Success
+            )
 
-      );
+        );
 
 
 
     return message.channel.send({
+
       embeds: [embed],
+
       components: [row1, row2]
+
     });
-
-  }
-
-
-
-// ======================
-// NORMAL COMMANDS
-// ======================
-
-  const command =
-    client.commands.get(commandName);
-
-  if (!command) return;
-
-  try {
-
-    await command.execute(
-      message,
-      args,
-      client
-    );
-
-  } catch (error) {
-
-    console.error(error);
-
-    message.reply(
-      '❌ Terjadi error command.'
-    );
 
   }
 
@@ -254,7 +284,7 @@ client.on('messageCreate', async message => {
 
 
 // ======================
-// BUTTON SYSTEM
+// INTERACTIONS
 // ======================
 
 client.on('interactionCreate', async interaction => {
@@ -262,176 +292,225 @@ client.on('interactionCreate', async interaction => {
 
 
 // ======================
-// SLASH COMMANDS
+// BUTTONS
 // ======================
 
-  if (interaction.isChatInputCommand()) {
+  if (interaction.isButton()) {
 
-    const command =
-      client.commands.get(
-        interaction.commandName
-      );
 
-    if (!command) return;
 
-    try {
+// MUSIC BUTTON
+// SEMUA ORANG BISA
 
-      await command.execute(interaction);
+    if (
+      interaction.customId ===
+      'music_panel'
+    ) {
 
-    } catch (error) {
+      return interaction.reply({
 
-      console.error(error);
+        content:
+          '🎵 Gunakan !play <url>',
 
-      if (
-        interaction.replied ||
-        interaction.deferred
-      ) {
+        ephemeral: true
 
-        await interaction.followUp({
-          content: '❌ Error.',
-          ephemeral: true
-        });
-
-      } else {
-
-        await interaction.reply({
-          content: '❌ Error.',
-          ephemeral: true
-        });
-
-      }
+      });
 
     }
 
-  }
 
 
-
-// ======================
-// BUTTON INTERACTIONS
-// ======================
-
-  if (!interaction.isButton()) return;
-
-
-
-// MUSIC
-  if (interaction.customId === 'music') {
-
-    return interaction.reply({
-      content:
-        '🎵 Gunakan !play <url>',
-      ephemeral: true
-    });
-
-  }
-
-
-
-// TICKET
-  if (interaction.customId === 'ticket') {
-
-    const channel =
-      await interaction.guild.channels.create({
-        name:
-          `ticket-${interaction.user.username}`,
-        type: 0
-      });
-
-    return interaction.reply({
-      content:
-        `🎫 Ticket dibuat: ${channel}`,
-      ephemeral: true
-    });
-
-  }
-
-
-
-// VERIFY
-  if (interaction.customId === 'verify') {
+// ROLE CHECK
 
     const role =
       interaction.guild.roles.cache.find(
-        r => r.name === 'Verified'
+        r => r.name === ACCESS_ROLE_NAME
       );
 
-    if (role) {
 
-      await interaction.member.roles.add(role);
-
-    }
-
-    return interaction.reply({
-      content:
-        '✅ Verifikasi berhasil.',
-      ephemeral: true
-    });
-
-  }
-
-
-
-// SA:MP
-  if (interaction.customId === 'server') {
-
-    return interaction.reply({
-      content:
-        '🎮 SA:MP Server Online',
-      ephemeral: true
-    });
-
-  }
-
-
-
-// SOCIAL MEDIA
-  if (interaction.customId === 'social') {
-
-    return interaction.reply({
-      content:
-        '📢 Notifikasi sosial media aktif.',
-      ephemeral: true
-    });
-
-  }
-
-
-
-// STOCK
-  if (interaction.customId === 'stock') {
-
-    return interaction.reply({
-      content:
-        '📈 Notifikasi saham aktif.',
-      ephemeral: true
-    });
-
-  }
-
-
-
-// ADMIN PANEL
-  if (interaction.customId === 'admin') {
 
     if (
-      !interaction.member.permissions.has(
-        PermissionsBitField.Flags.Administrator
+      !interaction.member.roles.cache.has(
+        role?.id
       )
     ) {
 
       return interaction.reply({
+
         content:
-          '❌ Khusus admin.',
+          '❌ Tidak punya akses.',
+
         ephemeral: true
+
       });
 
     }
 
+
+
+// CHANNEL LIST
+
+    const channels =
+      interaction.guild.channels.cache
+
+        .filter(
+          c =>
+            c.type ===
+            ChannelType.GuildText
+        )
+
+        .map(channel => ({
+          label: channel.name,
+          value: channel.id
+        }))
+
+        .slice(0, 25);
+
+
+
+// SELECT MENU
+
+    const menu =
+      new StringSelectMenuBuilder()
+
+        .setCustomId(
+          interaction.customId
+        )
+
+        .setPlaceholder(
+          'Pilih channel'
+        )
+
+        .addOptions(channels);
+
+
+
+    const row =
+      new ActionRowBuilder()
+        .addComponents(menu);
+
+
+
     return interaction.reply({
+
       content:
-        '🛡️ Admin access granted.',
+        '📌 Pilih channel.',
+
+      components: [row],
+
       ephemeral: true
+
+    });
+
+  }
+
+
+
+// ======================
+// SELECT MENU
+// ======================
+
+  if (interaction.isStringSelectMenu()) {
+
+    const channelId =
+      interaction.values[0];
+
+
+
+    if (
+      !guildConfig[interaction.guild.id]
+    ) {
+
+      guildConfig[
+        interaction.guild.id
+      ] = {};
+
+    }
+
+
+
+// WELCOME
+
+    if (
+      interaction.customId ===
+      'setup_welcome'
+    ) {
+
+      guildConfig[
+        interaction.guild.id
+      ].welcomeChannel = channelId;
+
+    }
+
+
+
+// LEAVE
+
+    if (
+      interaction.customId ===
+      'setup_leave'
+    ) {
+
+      guildConfig[
+        interaction.guild.id
+      ].leaveChannel = channelId;
+
+    }
+
+
+
+// SOCIAL
+
+    if (
+      interaction.customId ===
+      'setup_social'
+    ) {
+
+      guildConfig[
+        interaction.guild.id
+      ].socialChannel = channelId;
+
+    }
+
+
+
+// STOCK
+
+    if (
+      interaction.customId ===
+      'setup_stock'
+    ) {
+
+      guildConfig[
+        interaction.guild.id
+      ].stockChannel = channelId;
+
+    }
+
+
+
+// ADMIN LOG
+
+    if (
+      interaction.customId ===
+      'setup_adminlog'
+    ) {
+
+      guildConfig[
+        interaction.guild.id
+      ].adminLogChannel = channelId;
+
+    }
+
+
+
+    return interaction.reply({
+
+      content:
+        '✅ Channel berhasil diatur.',
+
+      ephemeral: true
+
     });
 
   }
