@@ -3,10 +3,17 @@ require('dotenv').config();
 const {
   Client,
   GatewayIntentBits,
-  Collection
+  Collection,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  PermissionsBitField
 } = require('discord.js');
 
 const fs = require('fs');
+
+
 
 const client = new Client({
   intents: [
@@ -18,18 +25,22 @@ const client = new Client({
   ]
 });
 
+
+
 client.commands = new Collection();
 
 
 
+// ======================
 // LOAD COMMANDS
+// ======================
+
 const commandFolders = fs.readdirSync('./commands');
 
 for (const folder of commandFolders) {
 
   const folderPath = `./commands/${folder}`;
 
-  // skip jika bukan folder
   if (!fs.lstatSync(folderPath).isDirectory()) continue;
 
   const commandFiles = fs
@@ -40,28 +51,74 @@ for (const folder of commandFolders) {
 
     const command = require(`${folderPath}/${file}`);
 
-    // PREFIX COMMAND
     if (command.name) {
       client.commands.set(command.name, command);
     }
 
-    // SLASH COMMAND
     if (command.data) {
       client.commands.set(command.data.name, command);
     }
+
   }
+
 }
 
 
 
+// ======================
 // READY
+// ======================
+
 client.once('ready', () => {
+
   console.log(`${client.user.tag} online!`);
+
 });
 
 
 
+// ======================
+// WELCOME SYSTEM
+// ======================
+
+client.on('guildMemberAdd', member => {
+
+  const channel =
+    member.guild.channels.cache.find(
+      c => c.name === 'welcome'
+    );
+
+  if (!channel) return;
+
+  channel.send(
+    `👋 Selamat datang ${member}`
+  );
+
+});
+
+
+
+client.on('guildMemberRemove', member => {
+
+  const channel =
+    member.guild.channels.cache.find(
+      c => c.name === 'welcome'
+    );
+
+  if (!channel) return;
+
+  channel.send(
+    `😢 ${member.user.tag} keluar dari server`
+  );
+
+});
+
+
+
+// ======================
 // PREFIX COMMANDS
+// ======================
+
 client.on('messageCreate', async message => {
 
   if (message.author.bot) return;
@@ -75,21 +132,120 @@ client.on('messageCreate', async message => {
     .trim()
     .split(/ +/);
 
-  const commandName = args.shift().toLowerCase();
+  const commandName =
+    args.shift().toLowerCase();
 
-  const command = client.commands.get(commandName);
+
+
+// ======================
+// PANEL COMMAND
+// ======================
+
+  if (commandName === 'panel') {
+
+    const embed = new EmbedBuilder()
+      .setColor('#5865F2')
+      .setTitle('✨ Astra Assistant Panel')
+      .setDescription(
+        'Gunakan tombol di bawah.'
+      )
+      .addFields(
+        {
+          name: '🤖 AI',
+          value: '`!ai pertanyaan`',
+          inline: true
+        },
+        {
+          name: '💰 Economy',
+          value: '`!balance`',
+          inline: true
+        }
+      );
+
+
+
+    const row1 = new ActionRowBuilder()
+      .addComponents(
+
+        new ButtonBuilder()
+          .setCustomId('music')
+          .setLabel('Music')
+          .setStyle(ButtonStyle.Primary),
+
+        new ButtonBuilder()
+          .setCustomId('ticket')
+          .setLabel('Ticket')
+          .setStyle(ButtonStyle.Success),
+
+        new ButtonBuilder()
+          .setCustomId('verify')
+          .setLabel('Verify')
+          .setStyle(ButtonStyle.Secondary),
+
+        new ButtonBuilder()
+          .setCustomId('server')
+          .setLabel('SA:MP')
+          .setStyle(ButtonStyle.Danger)
+
+      );
+
+
+
+    const row2 = new ActionRowBuilder()
+      .addComponents(
+
+        new ButtonBuilder()
+          .setCustomId('social')
+          .setLabel('Social Media')
+          .setStyle(ButtonStyle.Primary),
+
+        new ButtonBuilder()
+          .setCustomId('stock')
+          .setLabel('Stock Alert')
+          .setStyle(ButtonStyle.Success),
+
+        new ButtonBuilder()
+          .setCustomId('admin')
+          .setLabel('Admin Access')
+          .setStyle(ButtonStyle.Danger)
+
+      );
+
+
+
+    return message.channel.send({
+      embeds: [embed],
+      components: [row1, row2]
+    });
+
+  }
+
+
+
+// ======================
+// NORMAL COMMANDS
+// ======================
+
+  const command =
+    client.commands.get(commandName);
 
   if (!command) return;
 
   try {
 
-    await command.execute(message, args, client);
+    await command.execute(
+      message,
+      args,
+      client
+    );
 
   } catch (error) {
 
     console.error(error);
 
-    message.reply('Terjadi error command.');
+    message.reply(
+      '❌ Terjadi error command.'
+    );
 
   }
 
@@ -97,38 +253,186 @@ client.on('messageCreate', async message => {
 
 
 
-// SLASH COMMANDS
+// ======================
+// BUTTON SYSTEM
+// ======================
+
 client.on('interactionCreate', async interaction => {
 
-  if (!interaction.isChatInputCommand()) return;
 
-  const command = client.commands.get(interaction.commandName);
 
-  if (!command) return;
+// ======================
+// SLASH COMMANDS
+// ======================
 
-  try {
+  if (interaction.isChatInputCommand()) {
 
-    await command.execute(interaction);
+    const command =
+      client.commands.get(
+        interaction.commandName
+      );
 
-  } catch (error) {
+    if (!command) return;
 
-    console.error(error);
+    try {
 
-    if (interaction.replied || interaction.deferred) {
+      await command.execute(interaction);
 
-      await interaction.followUp({
-        content: 'Terjadi error.',
-        ephemeral: true
+    } catch (error) {
+
+      console.error(error);
+
+      if (
+        interaction.replied ||
+        interaction.deferred
+      ) {
+
+        await interaction.followUp({
+          content: '❌ Error.',
+          ephemeral: true
+        });
+
+      } else {
+
+        await interaction.reply({
+          content: '❌ Error.',
+          ephemeral: true
+        });
+
+      }
+
+    }
+
+  }
+
+
+
+// ======================
+// BUTTON INTERACTIONS
+// ======================
+
+  if (!interaction.isButton()) return;
+
+
+
+// MUSIC
+  if (interaction.customId === 'music') {
+
+    return interaction.reply({
+      content:
+        '🎵 Gunakan !play <url>',
+      ephemeral: true
+    });
+
+  }
+
+
+
+// TICKET
+  if (interaction.customId === 'ticket') {
+
+    const channel =
+      await interaction.guild.channels.create({
+        name:
+          `ticket-${interaction.user.username}`,
+        type: 0
       });
 
-    } else {
+    return interaction.reply({
+      content:
+        `🎫 Ticket dibuat: ${channel}`,
+      ephemeral: true
+    });
 
-      await interaction.reply({
-        content: 'Terjadi error.',
+  }
+
+
+
+// VERIFY
+  if (interaction.customId === 'verify') {
+
+    const role =
+      interaction.guild.roles.cache.find(
+        r => r.name === 'Verified'
+      );
+
+    if (role) {
+
+      await interaction.member.roles.add(role);
+
+    }
+
+    return interaction.reply({
+      content:
+        '✅ Verifikasi berhasil.',
+      ephemeral: true
+    });
+
+  }
+
+
+
+// SA:MP
+  if (interaction.customId === 'server') {
+
+    return interaction.reply({
+      content:
+        '🎮 SA:MP Server Online',
+      ephemeral: true
+    });
+
+  }
+
+
+
+// SOCIAL MEDIA
+  if (interaction.customId === 'social') {
+
+    return interaction.reply({
+      content:
+        '📢 Notifikasi sosial media aktif.',
+      ephemeral: true
+    });
+
+  }
+
+
+
+// STOCK
+  if (interaction.customId === 'stock') {
+
+    return interaction.reply({
+      content:
+        '📈 Notifikasi saham aktif.',
+      ephemeral: true
+    });
+
+  }
+
+
+
+// ADMIN PANEL
+  if (interaction.customId === 'admin') {
+
+    if (
+      !interaction.member.permissions.has(
+        PermissionsBitField.Flags.Administrator
+      )
+    ) {
+
+      return interaction.reply({
+        content:
+          '❌ Khusus admin.',
         ephemeral: true
       });
 
     }
+
+    return interaction.reply({
+      content:
+        '🛡️ Admin access granted.',
+      ephemeral: true
+    });
 
   }
 
