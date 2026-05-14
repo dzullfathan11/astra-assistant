@@ -36,7 +36,7 @@ const guildConfig = {};
 
 // ROLE YANG BOLEH AKSES PANEL
 const ACCESS_ROLE_NAME =
-  'Astra Manager';
+  'admin';
 
 
 
