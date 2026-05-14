@@ -20,26 +20,45 @@ const client = new Client({
 
 client.commands = new Collection();
 
-const commandFolders = fs.readdirSync('./commands');
+// Memastikan folder 'commands' utama ada sebelum dibaca
+if (fs.existsSync('./commands')) {
+  const commandFolders = fs.readdirSync('./commands');
 
-for (const folder of commandFolders) {
-  const commandFiles = fs
-    .readdirSync(`./commands/${folder}`)
-    .filter(file => file.endsWith('.js'));
+  for (const folder of commandFolders) {
+    const folderPath = `./commands/${folder}`;
+    
+    // Validasi: Hanya memproses jika item tersebut adalah sebuah folder/direktori
+    if (fs.statSync(folderPath).isDirectory()) {
+      try {
+        const commandFiles = fs
+          .readdirSync(folderPath)
+          .filter(file => file.endsWith('.js'));
 
-  for (const file of commandFiles) {
-    const command = require(`./commands/${folder}/${file}`);
+        for (const file of commandFiles) {
+          // Mengamankan proses require agar tidak membuat bot crash jika file bermasalah
+          try {
+            const command = require(`./commands/${folder}/${file}`);
 
-    // Prefix Commands
-    if (command.name) {
-      client.commands.set(command.name, command);
-    }
+            // Prefix Commands
+            if (command.name) {
+              client.commands.set(command.name, command);
+            }
 
-    // Slash Commands
-    if (command.data) {
-      client.commands.set(command.data.name, command);
+            // Slash Commands
+            if (command.data && command.data.name) {
+              client.commands.set(command.data.name, command);
+            }
+          } catch (error) {
+            console.error(`Gagal memuat file script: ${file} di folder ${folder}. Error:`, error.message);
+          }
+        }
+      } catch (dirError) {
+        console.error(`Tidak dapat membaca isi folder: ${folderPath}. Error:`, dirError.message);
+      }
     }
   }
+} else {
+  console.error("Error: Folder './commands' tidak ditemukan di root direktori!");
 }
 
 client.once('ready', () => {
@@ -71,7 +90,7 @@ client.on('messageCreate', async message => {
     await command.execute(message, args, client);
   } catch (error) {
     console.error(error);
-    message.reply('Terjadi error.');
+    message.reply('Terjadi error saat menjalankan command prefix.');
   }
 });
 
@@ -92,12 +111,12 @@ client.on('interactionCreate', async interaction => {
 
     if (interaction.replied || interaction.deferred) {
       await interaction.followUp({
-        content: 'Terjadi error.',
+        content: 'Terjadi error saat menjalankan slash command.',
         ephemeral: true
       });
     } else {
       await interaction.reply({
-        content: 'Terjadi error.',
+        content: 'Terjadi error saat menjalankan slash command.',
         ephemeral: true
       });
     }
