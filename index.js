@@ -37,7 +37,7 @@ if (fs.existsSync('./commands')) {
         for (const file of commandFiles) {
           // Mengamankan proses require agar tidak membuat bot crash jika file bermasalah
           try {
-            const command = require(`./commands/${folder}/${file}`);
+            const command = require(`./commands/${deploy-commands.js}`);
 
             // Prefix Commands
             if (command.name) {
